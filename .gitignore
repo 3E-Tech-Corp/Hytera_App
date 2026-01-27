@@ -361,3 +361,16 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Frontend build output
+Frontend/dist/
+Frontend/dist-ssr/
+
+# Environment files
+*.env
+*.env.local
+*.env.*.local
+!*.env.example
+
+# Sensitive config files - use templates
+appsettings.Production.json
