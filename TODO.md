@@ -1,75 +1,201 @@
-# 📡 Hytera App — Analysis & TODO
+# 📡 Hytera Data Core — Analysis & TODO
 **Last Updated:** 2026-02-03 | **Maintainer:** Synthia
 
-## Current State
-- **Repo:** 3E-Tech-Corp/Hytera_App
-- **Stack:** .NET 8 + Dapper/ADO.NET + SQL Server (stored procedures)
-- **DB:** `DCN` on `HYTSQL` server
-- **Status:** API-only backend, early stage. Will evolve into a common data provider for Hytera.
+## Vision
+A **clean, stable data access API** that serves as the foundation for all Hytera applications. Multiple frontends (web apps, mobile apps, partner integrations) consume data through API keys and JWT authentication. Modeled after Funtime-Shared's architecture but purpose-built for Hytera's domain.
 
-## Architecture
-- Backend-only .NET 8 API (no frontend in this repo)
-- All data access via stored procedures (`psp_CheckSAP`, etc.) through `DatabaseService`
-- EF Core `HyteraDbContext` exists but only for schema reference — actual queries use raw ADO.NET DataSets
-- OldCode/ folder has legacy .NET Framework controllers (reference only)
+**This is NOT a patch job on the existing code.** The current controllers are reference material for understanding the data domain. The goal is a clean core built with the right patterns from day one.
 
-## Current Endpoints
-| Route | Method | Purpose |
-|-------|--------|---------|
-| `User/FastLogin/{userId}` | GET/POST | Login via stored proc `psp_CheckSAP` |
-| `User/ResetPassword/{email}` | GET/POST | Password reset |
-| `Api/Inventory/{itemCode}` | GET/POST | Inventory lookup/search |
-| `api/nlu/inventory` | POST | NLU-based inventory query (OpenAI GPT) |
-| `Game/CheckScore` | POST | Check game scores |
-| `Game/UploadScore` | POST | Upload game scores |
-| `Asset/Image/{id}` | GET | Serve images (with resize) |
-| `Asset/File/{id}` | GET | Serve files |
-| `Asset/streamvideo/{id}` | GET | Stream video |
-| `App/CheckNewVersion/{os}` | GET/POST | App version checking |
-| `App/Language/{code}` | GET/POST | Language pack management |
-| `App/Voiceset` | GET/POST | Voice set management |
-| `App/LinkNewROC/{appId}` | GET/POST | ROC linking |
+## Current Repo State (Reference Only)
+- 11 controllers using raw ADO.NET DataSets + stored procedures
+- No auth middleware, no response standardization, mixed route patterns
+- EF Core DbContext exists but unused for queries
+- `OldCode/` folder has legacy .NET Framework controllers
+- DB: `DCN` on `HYTSQL`, data lives in stored procs
 
-## 🟠 High — Vision: Common Data Provider
+## Architecture: Clean Data Core
 
-Feng's plan: Expand into a **centralized data API for Hytera**, similar to how Funtime-Shared serves all pickleball sites. Multiple frontends (web, mobile, partner apps) consume data via API keys and JWT.
+### Design Principles
+1. **Stored procedures are the data layer** — Hytera's business logic lives in SQL Server procs. The API is a clean, secure gateway to them.
+2. **JWT + API Key dual auth** — Humans get JWT tokens, machines get API keys. Both are first-class.
+3. **Multi-tenant from day one** — API keys scope data access. Different clients see different data.
+4. **Consistent contracts** — Every endpoint returns the same envelope. Every error is structured. No surprises.
+5. **Auditable** — Every data access is logged. Who, what, when, from where.
 
-### Phase 1: Auth & Security Foundation (copy from Funtime-Shared)
-- [ ] **JWT authentication** — Currently NO auth middleware. Port JWT setup from Funtime-Shared.
-- [ ] **API key middleware** — For machine-to-machine access (partner apps, frontends)
-- [ ] **Rate limiting** — Protect endpoints from abuse
-- [ ] **CORS configuration** — Currently `AllowAll` — lock down to known origins
-- [ ] **Secrets management** — Move connection strings and API keys out of appsettings.json
+### Target Architecture
+```
+┌─────────────────────────────────────────────────┐
+│                   Frontends                      │
+│  Web App A │ Web App B │ Mobile │ Partner API    │
+└──────┬──────┬──────┬──────┬─────────────────────┘
+       │      │      │      │
+       ▼      ▼      ▼      ▼
+┌─────────────────────────────────────────────────┐
+│              Hytera Data Core API                │
+│                                                  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐      │
+│  │ Auth     │  │ Middleware│  │ Response  │      │
+│  │ JWT/Key  │  │ Rate Lim │  │ Envelope  │      │
+│  │          │  │ Audit    │  │ Errors    │      │
+│  └──────────┘  └──────────┘  └──────────┘      │
+│                                                  │
+│  ┌──────────────────────────────────────┐       │
+│  │         Domain Controllers            │       │
+│  │  Auth │ Inventory │ Games │ Assets    │       │
+│  │  Apps │ Languages │ Voice │ Admin     │       │
+│  └──────────────┬───────────────────────┘       │
+│                 │                                 │
+│  ┌──────────────▼───────────────────────┐       │
+│  │      Data Access Service              │       │
+│  │  Stored Proc Executor (Dapper)        │       │
+│  │  Connection Management                │       │
+│  │  Result Mapping                       │       │
+│  └──────────────┬───────────────────────┘       │
+└─────────────────┼───────────────────────────────┘
+                  │
+                  ▼
+         ┌────────────────┐
+         │  SQL Server     │
+         │  HYTSQL / DCN   │
+         │  Stored Procs   │
+         └────────────────┘
+```
 
-### Phase 2: API Standardization
-- [ ] **Consistent route structure** — Currently mixed (`User/`, `Api/`, `Game/`, `App/`, `Asset/`). Standardize.
-- [ ] **Response envelope** — Standard `{ success, data, message, errors }` wrapper
-- [ ] **Pagination** — For inventory and score listing endpoints
-- [ ] **Swagger/OpenAPI docs** — Already has Swagger in dev, expand with proper XML docs
-- [ ] **Versioning** — API versioning (v1/v2) for breaking changes
+## 🔴 Phase 1: Foundation (Build First)
 
-### Phase 3: Data Provider Expansion
-- [ ] **Multi-tenant support** — Different API keys get different data scopes
-- [ ] **Webhook system** — Notify external systems on inventory changes, score updates
-- [ ] **Audit logging** — Track who accessed what data and when
-- [ ] **Caching layer** — Redis or in-memory for frequently accessed data (inventory, versions)
+### Auth System (port from Funtime-Shared)
+- [ ] **JWT token issuance** — Login endpoint returns JWT with claims (UserId, Role, BPCode, Scopes)
+- [ ] **JWT validation middleware** — All endpoints except login require valid token
+- [ ] **API key middleware** — `X-API-Key` header for machine clients, maps to tenant/scope
+- [ ] **API key management** — CRUD for keys (admin only), each key has: name, scopes, rate limit, expiry
+- [ ] **Refresh tokens** — Long-lived refresh + short-lived access token pattern
 
-## 🟡 Medium — Feature Gaps
-- [ ] **User management CRUD** — Currently only login/password reset. Need create, update, list, deactivate.
-- [ ] **Inventory CRUD** — Only read/search exists. Need admin create/update/delete.
-- [ ] **Role-based access** — `UserRole` and `BPRoleName` exist in DB but no authorization enforcement
-- [ ] **File upload** — Assets table exists but no upload endpoint in new code
-- [ ] **NLU improvements** — InventoryNluController uses OpenAI but API key is empty in config
+### Data Access Layer
+- [ ] **Dapper-based proc executor** — Replace raw ADO.NET DataSets with Dapper. Typed results, not DataRow parsing.
+- [ ] **IDbConnectionFactory** — Pooled connections, not new SqlConnection per request
+- [ ] **Generic proc caller** — `Task<T> ExecProcAsync<T>(string proc, object? params)` with auto-mapping
+- [ ] **Multi-result support** — Some procs return multiple result sets (QueryMultiple)
+- [ ] **Connection string per tenant** — If different clients need different DBs
 
-## 🟢 Low — Nice to Have
-- [ ] **Health check endpoint** — `/health` for monitoring
-- [ ] **Background jobs** — Inventory sync, stale score cleanup
-- [ ] **Export endpoints** — CSV/Excel export for inventory, scores
-- [ ] **Dashboard API** — Summary stats for admin frontend
+### Response Standards
+- [ ] **Response envelope** — Every response: `{ success: bool, data: T?, message: string?, errors: string[]?, meta: { page, total, timestamp } }`
+- [ ] **Error middleware** — Global exception handler, structured error responses, no stack traces in production
+- [ ] **Validation** — FluentValidation or DataAnnotations on all request DTOs
+- [ ] **HTTP status codes** — Proper use (200/201/400/401/403/404/500), not everything-is-200
+
+### Infrastructure
+- [ ] **Health check** — `/health` returning DB connectivity, version, uptime
+- [ ] **Swagger/OpenAPI** — Full docs with auth schemes, examples, response types
+- [ ] **Logging** — Serilog with structured logging (request/response, proc calls, auth events)
+- [ ] **CORS** — Locked to known origins (not AllowAll)
+- [ ] **Rate limiting** — Per API key and per user, configurable
+
+## 🟠 Phase 2: Domain Endpoints (Clean Rewrite)
+
+Rewrite each domain using the new foundation. Reference existing controllers for the proc names and contracts.
+
+### Auth Domain (`/auth/*`)
+- [ ] `POST /auth/login` — Email/password → JWT (replaces `User/FastLogin`)
+- [ ] `POST /auth/login/fast/{userId}` — Quick login by user ID
+- [ ] `POST /auth/refresh` — Refresh token → new access token
+- [ ] `POST /auth/reset-password` — Request password reset
+- [ ] `POST /auth/change-password` — Authenticated password change
+- [ ] `GET /auth/me` — Current user profile from token
+
+### Inventory Domain (`/inventory/*`)
+- [ ] `GET /inventory/{itemCode}` — Single item lookup
+- [ ] `POST /inventory/search` — Search with filters, pagination
+- [ ] `POST /inventory/nlu-query` — Natural language inventory search (OpenAI)
+- [ ] `PUT /inventory/{itemCode}` — Update item (admin)
+- [ ] `GET /inventory/categories` — Item type/category listing
+
+### Games Domain (`/games/*`)
+- [ ] `POST /games/scores` — Upload score
+- [ ] `POST /games/scores/check` — Check/query scores
+- [ ] `GET /games/scores/{eventId}` — Scores by event
+- [ ] `GET /games/leaderboard/{eventId}` — Aggregated standings
+
+### Assets Domain (`/assets/*`)
+- [ ] `GET /assets/{id}` — Serve file (with caching headers)
+- [ ] `GET /assets/{id}/image/{width?}/{height?}` — Serve resized image
+- [ ] `GET /assets/{id}/stream` — Stream video
+- [ ] `POST /assets/upload` — Upload file (admin, base64 for WAF safety)
+
+### App Management Domain (`/apps/*`)
+- [ ] `GET /apps/version/{os}` — Check latest version
+- [ ] `POST /apps/version` — Register new version (admin)
+- [ ] `GET /apps/languages/{code}` — Get language pack
+- [ ] `GET /apps/voicesets` — List voice sets
+- [ ] `GET /apps/voicesets/{code}` — Get specific voice set
+- [ ] `POST /apps/roc/link` — Link new ROC
+
+### Admin Domain (`/admin/*`)
+- [ ] `GET /admin/users` — List users (paginated)
+- [ ] `PUT /admin/users/{id}` — Update user
+- [ ] `GET /admin/api-keys` — List API keys
+- [ ] `POST /admin/api-keys` — Create API key
+- [ ] `DELETE /admin/api-keys/{id}` — Revoke API key
+- [ ] `GET /admin/audit-log` — Query audit trail
+
+## 🟡 Phase 3: Production Readiness
+
+- [ ] **Audit logging** — Middleware logs every request: who, what endpoint, params, response code, duration
+- [ ] **Webhook system** — Register webhooks, fire on inventory/score changes
+- [ ] **Caching** — In-memory or Redis for inventory, versions, languages (configurable TTL)
+- [ ] **Deployment** — GitHub Actions workflow (IIS deploy, DB migration runner)
+- [ ] **Monitoring** — Health dashboard, error rate tracking, response time metrics
+- [ ] **Documentation site** — API docs for external consumers (partner integration guide)
+
+## 🟢 Phase 4: Expansion
+
+- [ ] **Multi-database routing** — Different tenants → different SQL Server instances
+- [ ] **Event sourcing** — Track all data changes for replay/audit
+- [ ] **GraphQL layer** — Optional GraphQL endpoint for flexible querying
+- [ ] **SDK generation** — Auto-generate TypeScript/C# client SDKs from OpenAPI spec
+
+## File Structure (Target)
+```
+Backend/API/
+├── Auth/
+│   ├── JwtService.cs
+│   ├── ApiKeyMiddleware.cs
+│   └── ApiKeyService.cs
+├── Controllers/
+│   ├── AuthController.cs
+│   ├── InventoryController.cs
+│   ├── GamesController.cs
+│   ├── AssetsController.cs
+│   ├── AppsController.cs
+│   └── AdminController.cs
+├── Data/
+│   ├── IDbConnectionFactory.cs
+│   ├── DbConnectionFactory.cs
+│   ├── IProcExecutor.cs
+│   └── DapperProcExecutor.cs
+├── Middleware/
+│   ├── ErrorHandlingMiddleware.cs
+│   ├── AuditMiddleware.cs
+│   ├── RateLimitMiddleware.cs
+│   └── ResponseEnvelopeMiddleware.cs
+├── Models/
+│   ├── Requests/
+│   ├── Responses/
+│   ├── Domain/
+│   └── ApiEnvelope.cs
+├── Services/
+│   ├── InventoryService.cs
+│   ├── GameService.cs
+│   ├── AssetService.cs
+│   └── AppService.cs
+├── Scripts/
+│   └── archives/
+├── Program.cs
+└── appsettings.json
+```
 
 ## Technical Notes
-- **DB:** SQL Server on `HYTSQL`, database `DCN`. Auth via `sa` (needs service account).
-- **Stored procs:** `psp_CheckSAP` (login), others TBD — most logic lives in the DB
-- **Asset storage:** `D:\Docvault\www` on the server, served via AssetController
-- **OldCode/:** Legacy .NET Framework reference — don't modify, use for understanding original API contracts
-- **OpenAI:** Key configured but empty — needs setting for NLU inventory feature
+- **DB:** SQL Server on `HYTSQL`, database `DCN`. All business logic in stored procs.
+- **Asset storage:** `D:\Docvault\www` on the Hytera server
+- **Contact:** Tomas Rosales (tomas.rosales@hytera.us)
+- **Existing procs:** `psp_CheckSAP` (login), others TBD — need to catalog all procs in DCN
+- **Model after:** Funtime-Shared auth patterns, FXNotification API key patterns
