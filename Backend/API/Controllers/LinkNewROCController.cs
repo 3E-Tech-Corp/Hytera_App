@@ -1,12 +1,14 @@
 using HyteraAPI.Models.Requests;
 using HyteraAPI.Models.Responses;
 using HyteraAPI.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HyteraAPI.Controllers;
 
 [Route("App/[controller]")]
 [ApiController]
+[Authorize]
 public class LinkNewROCController : ControllerBase
 {
     private readonly IDatabaseService _databaseService;

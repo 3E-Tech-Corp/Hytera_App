@@ -1,11 +1,13 @@
 using HyteraAPI.Models.Responses;
 using HyteraAPI.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HyteraAPI.Controllers;
 
 [Route("Asset")]
 [ApiController]
+[Authorize]
 public class AssetsController : ControllerBase
 {
     private readonly IAssetService _assetService;

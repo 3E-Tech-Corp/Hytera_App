@@ -1,6 +1,7 @@
 using HyteraAPI.Models.Requests;
 using HyteraAPI.Models.Responses;
 using HyteraAPI.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Text;
 using System.Text.Json;
@@ -9,6 +10,7 @@ namespace HyteraAPI.Controllers;
 
 [Route("api/nlu")]
 [ApiController]
+[Authorize]
 public class InventoryNluController : ControllerBase
 {
     private readonly HttpClient _httpClient;
