@@ -41,8 +41,8 @@ A **clean, stable data access API** that serves as the foundation for all Hytera
 │                                                  │
 │  ┌──────────────────────────────────────┐       │
 │  │         Domain Controllers            │       │
-│  │  Auth │ Inventory │ Games │ Assets    │       │
-│  │  Apps │ Languages │ Voice │ Admin     │       │
+│  │  Auth │ Inventory │ Assets │ Apps      │       │
+│  │  Languages │ Admin                    │       │
 │  └──────────────┬───────────────────────┘       │
 │                 │                                 │
 │  ┌──────────────▼───────────────────────┐       │
@@ -92,7 +92,7 @@ A **clean, stable data access API** that serves as the foundation for all Hytera
 
 ## 🟠 Phase 2: Domain Endpoints (Clean Rewrite)
 
-Rewrite each domain using the new foundation. Reference existing controllers for the proc names and contracts.
+Rewrite each domain using the new foundation. Reference existing controllers for the proc names and contracts. (Game scores and voicesets removed — not part of this data core.)
 
 ### Auth Domain (`/auth/*`)
 - [ ] `POST /auth/login` — Email/password → JWT (replaces `User/FastLogin`)
@@ -109,12 +109,6 @@ Rewrite each domain using the new foundation. Reference existing controllers for
 - [ ] `PUT /inventory/{itemCode}` — Update item (admin)
 - [ ] `GET /inventory/categories` — Item type/category listing
 
-### Games Domain (`/games/*`)
-- [ ] `POST /games/scores` — Upload score
-- [ ] `POST /games/scores/check` — Check/query scores
-- [ ] `GET /games/scores/{eventId}` — Scores by event
-- [ ] `GET /games/leaderboard/{eventId}` — Aggregated standings
-
 ### Assets Domain (`/assets/*`)
 - [ ] `GET /assets/{id}` — Serve file (with caching headers)
 - [ ] `GET /assets/{id}/image/{width?}/{height?}` — Serve resized image
@@ -125,8 +119,6 @@ Rewrite each domain using the new foundation. Reference existing controllers for
 - [ ] `GET /apps/version/{os}` — Check latest version
 - [ ] `POST /apps/version` — Register new version (admin)
 - [ ] `GET /apps/languages/{code}` — Get language pack
-- [ ] `GET /apps/voicesets` — List voice sets
-- [ ] `GET /apps/voicesets/{code}` — Get specific voice set
 - [ ] `POST /apps/roc/link` — Link new ROC
 
 ### Admin Domain (`/admin/*`)
@@ -163,7 +155,6 @@ Backend/API/
 ├── Controllers/
 │   ├── AuthController.cs
 │   ├── InventoryController.cs
-│   ├── GamesController.cs
 │   ├── AssetsController.cs
 │   ├── AppsController.cs
 │   └── AdminController.cs
@@ -184,7 +175,6 @@ Backend/API/
 │   └── ApiEnvelope.cs
 ├── Services/
 │   ├── InventoryService.cs
-│   ├── GameService.cs
 │   ├── AssetService.cs
 │   └── AppService.cs
 ├── Scripts/
